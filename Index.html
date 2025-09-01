@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <title>TMA Interactive App - Final</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-color: #000000;
+            --primary-text: #ffffff;
+            --secondary-text: #8e8e8e;
+            --accent-color: #ffffff;
+            --bottom-nav-bg: #000000;
+            --bottom-nav-height: 65px;
+            --input-bg: #1e1e1e;
+            --input-border: #333;
+            --card-bg: #1a1a1a;
+            --ton-blue: #0098EA;
+            --publish-green: #2d892d;
+            --like-red: #FF3B5C;
+        }
+
+        html, body { height: 100%; width: 100%; margin: 0; overflow: hidden; position: fixed; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--primary-text); }
+        .app-container { width: 100%; height: 100%; position: relative; }
+
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-color); transition: transform 0.3s ease-in-out; transform: translateX(100%); z-index: 10; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+        .screen.active { transform: translateX(0); }
+        #feed-screen { z-index: 1; transform: translateX(0); position: relative; }
+
+        #feed-screen-content { height: 100%; overflow-y: scroll; scroll-snap-type: y mandatory; }
+        .video-card { width: 100%; height: 100%; scroll-snap-align: start; position: relative; }
+        .video-player { width: 100%; height: 100%; object-fit: cover; background-color: #111; }
+        .video-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; padding-bottom: calc(var(--bottom-nav-height) + 20px); box-sizing: border-box; background: linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.8) 100%); }
+        .video-details { display: flex; align-items: flex-end; width: 100%; }
+        .video-info-left { flex-grow: 1; }
+        .author-line { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .author-icon { width: 24px; height: 24px; border-radius: 6px; background-color: #ff5e5e; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        h3 { margin: 0; font-size: 16px; }
+        p { margin: 0; font-size: 14px; }
+        .cta-button { background-color: white; color: black; border: none; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px; display: inline-block; }
+        .video-actions { display: flex; flex-direction: column; gap: 25px; align-items: center; margin-left: 15px; }
+        .action-btn { display: flex; flex-direction: column; align-items: center; color: white; cursor: pointer; }
+        .action-btn i { font-size: 28px; transition: color 0.2s ease, transform 0.2s ease; }
+        .action-btn.liked i { color: var(--like-red); transform: scale(1.1); }
+        .action-btn span { font-size: 12px; margin-top: 5px; }
+
+        .play-pause-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 60px; color: rgba(255, 255, 255, 0.7); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .video-card.paused .play-pause-icon { opacity: 1; }
+
+        .add-video-btn { background: transparent; border: none; width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; }
+        .add-video-btn .icon { color: white; font-size: 32px; font-weight: 600; line-height: 1; }
+
+        .screen-header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding: 15px; padding-top: calc(15px + env(safe-area-inset-top, 0px)); }
+        .screen-header h2 { margin: 0; font-size: 18px; }
+        .back-btn { font-size: 16px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .header-publish-btn { font-size: 16px; cursor: pointer; color: var(--publish-green); font-weight: 500; }
+
+        #publish-screen { padding: 0; }
+        .publish-content { flex-grow: 1; overflow-y: auto; display: flex; gap: 15px; padding: 15px; }
+        .publish-preview-wrapper { flex-basis: 120px; flex-shrink: 0; }
+        #video-preview { width: 100%; height: 200px; border-radius: 10px; background-color: var(--input-bg); object-fit: cover; display: flex; justify-content: center; align-items: center; }
+        #video-preview:not([src]) { border: 2px dashed var(--input-border); }
+        #video-preview:not([src])::after { content: '🎬'; font-size: 40px; color: var(--secondary-text); }
+        .publish-form { display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
+        #description-input { background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 12px; color: white; font-size: 14px; font-family: 'Inter', sans-serif; resize: none; height: 100px; }
+        .publish-form input { background-color: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 12px; color: white; font-size: 14px; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--bottom-nav-height); background-color: var(--bottom-nav-bg); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid #222; z-index: 100; box-sizing: content-box; /* Важно для правильной работы padding */ }
+        .nav-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; color: var(--secondary-text); flex: 1; transition: color 0.2s ease; }
+        .nav-item.active { color: var(--accent-color); }
+        .nav-item .icon { width: 28px; height: 28px; }
+        .nav-item svg { width: 100%; height: 100%; }
+        .nav-item .label { font-size: 10px; margin-top: 2px; }
+
+        #profile-screen { padding: 0; overflow-y: auto; }
+        .profile-wrapper { padding: 15px; padding-top: calc(15px + env(safe-area-inset-top, 0px)); }
+        .profile-header-top { display: flex; justify-content: space-between; align-items: center; }
+        .profile-header-top .wallet-btn { background-color: #333; color: var(--primary-text); padding: 8px 12px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+        .profile-header-top .wallet-btn svg { width: 18px; height: 18px; fill: var(--ton-blue); }
+        .profile-header-top .coins { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+        .profile-content { padding-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .profile-avatar-container { width: 90px; height: 90px; border-radius: 50%; background-image: url('https://i.imgur.com/kS5W34A.jpeg'); background-size: cover; background-position: center; display: flex; justify-content: center; align-items: center; }
+        .profile-avatar-container img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg-color); }
+        .profile-username { font-size: 18px; font-weight: 600; }
+        .profile-stats { display: flex; justify-content: space-around; width: 100%; max-width: 300px; margin-top: 5px; }
+        .profile-stat-item { display: flex; flex-direction: column; align-items: center; font-size: 14px; }
+        .profile-stat-item .value { font-weight: 600; font-size: 16px; }
+        .profile-stat-item .label { color: var(--secondary-text); }
+        .profile-action-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .profile-action-button { background-color: var(--card-bg); color: var(--primary-text); padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; }
+        .share-profile-btn { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+        .profile-tabs { display: flex; justify-content: center; width: 100%; border-bottom: 1px solid #333; margin-top: 15px; }
+        .profile-tab-item { padding: 15px; font-size: 22px; color: var(--secondary-text); cursor: pointer; position: relative; flex: 1; text-align: center; }
+        .profile-tab-item.active { color: var(--primary-text); }
+        .profile-tab-item.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px; background-color: var(--accent-color); }
+        .profile-tab-content { display: none; width: 100%; }
+        .profile-tab-content.active { display: block; }
+
+        .profile-video-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; width: 100%; padding-top: 2px; }
+        .poster { width: 100%; padding-bottom: 150%; position: relative; background-color: #333; }
+        .poster img { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        .profile-no-content { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 40px 20px; text-align: center; width: 100%; }
+        .profile-no-content h4 { margin: 0; }
+        .profile-no-content .post-first-btn { background-image: linear-gradient(45deg, #ff0052, #ff8c00); color: white; padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div id="feed-screen" class="screen active">
+            <div id="feed-screen-content"></div>
+        </div>
+        <div id="publish-screen" class="screen">
+            <div class="screen-header">
+                <span class="back-btn"><i class="fa-solid fa-chevron-left"></i></span>
+                <h2>Новое видео</h2>
+                <span id="header-publish-btn" class="header-publish-btn">Опубликовать</span>
+            </div>
+            <div class="publish-content">
+                <div class="publish-preview-wrapper"><video id="video-preview" muted playsinline></video></div>
+                <div class="publish-form">
+                    <textarea id="description-input" placeholder="Расскажите о вашем видео"></textarea>
+                    <input type="text" id="btn-text-input" placeholder="Название кнопки (необязательно)">
+                    <input type="url" id="btn-link-input" placeholder="Ссылка для кнопки (https://...)">
+                </div>
+            </div>
+        </div>
+        <div id="profile-screen" class="screen">
+            <div class="profile-wrapper">
+                <div class="profile-header-top">
+                    <button class="wallet-btn"><svg viewBox="0 0 256 256" fill="currentColor"><path d="m128 24.3-84.4 48.6v97.1L128 218.7l84.4-48.6V72.9Zm-31.5 9.8 31.5 18.2 31.5-18.2-31.5-18.2ZM53 82.2l31.5 18.2v36.4L53 118.6Zm1 54.6 31.5 18.2v36.4l-31.5-18.2Zm88.8 0 31.5-18.2-31.5-18.2v36.4Zm-57.3 54.6L128 209.6l42.7-24.6-11.2-6.4-31.5 18.2-31.5-18.2Z"/></svg>Кошелёк</button>
+                    <div class="coins">🪙 1000</div>
+                </div>
+                <div class="profile-content">
+                    <div class="profile-avatar-container"><img src="https://i.imgur.com/bI9Qy7r.png" alt="User Avatar"></div>
+                    <div class="profile-username">maruf</div>
+                    <div class="profile-stats">
+                        <div class="profile-stat-item"><span class="value">0</span><span class="label">Подписок</span></div>
+                        <div class="profile-stat-item"><span class="value">0</span><span class="label">Подписчиков</span></div>
+                        <div class="profile-stat-item"><span class="value">0</span><span class="label">Лайков</span></div>
+                    </div>
+                    <div class="profile-action-buttons">
+                        <button class="profile-action-button" id="edit-profile-btn">Изменить профиль</button>
+                        <button class="profile-action-button share-profile-btn" id="share-profile-btn"><i class="fa-solid fa-arrow-up-from-bracket"></i></button>
+                    </div>
+                    <div class="profile-tabs">
+                        <div class="profile-tab-item active" data-tab="my-videos"><i class="fa-solid fa-table-cells"></i></div>
+                        <div class="profile-tab-item" data-tab="liked-videos"><i class="fa-solid fa-heart"></i></div>
+                    </div>
+                    <div id="my-videos-content" class="profile-tab-content active">
+                        <div class="profile-no-content" id="no-my-videos"><h4>Ещё нет видео</h4><button class="post-first-btn">Запости первое видео</button></div>
+                        <div class="profile-video-grid" id="my-videos-grid"></div>
+                    </div>
+                    <div id="liked-videos-content" class="profile-tab-content">
+                        <div class="profile-no-content" id="no-liked-videos"><h4>Вы еще не лайкнули ни одного видео</h4></div>
+                        <div class="profile-video-grid" id="liked-videos-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="edit-profile-screen" class="screen"><div class="screen-header"><h2>Редактирование профиля</h2><span class="back-btn">Назад</span></div><p style="padding: 20px;">Здесь будет экран редактирования профиля.</p></div>
+    </div>
+
+    <input type="file" id="video-upload-input" accept="video/*" style="display: none;">
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" data-screen="feed-screen"><div class="icon" id="icon-home"></div><div class="label">Смотри</div></div>
+        <div class="nav-item add-video-btn" data-action="add-video"><div class="icon">+</div></div>
+        <div class="nav-item" data-screen="profile-screen"><div class="icon" id="icon-profile"></div><div class="label">Профиль</div></div>
+    </nav>
+    
+    <script>
+        let mockVideos = [
+            { id: 1, author: '@FOLK game', description: 'Это первое видео', poster: 'https://i.imgur.com/g8u2m6B.png', videoUrl: 'https://cdn.coverr.co/videos/coverr-a-man-in-a-balaclava-deejaying-9189/1080p.mp4', ctaText: 'Смотреть', ctaLink: '#', likes: 197, shares: 6, liked: false },
+            { id: 2, author: '@maruf', description: 'Второе видео в ленте!', poster: 'https://i.imgur.com/8QRLd6i.png', videoUrl: 'https://cdn.coverr.co/videos/coverr-a-person-working-on-a-laptop-in-a-bar-5431/1080p.mp4', ctaText: '', ctaLink: '', likes: 1200, shares: 98, liked: false },
+            { id: 3, author: '@design_master', description: 'Видео про веб-дизайн', poster: 'https://i.imgur.com/aC3F4gj.png', videoUrl: 'https://cdn.coverr.co/videos/coverr-a-woman-works-on-her-laptop-and-sips-her-drink-1954/1080p.mp4', ctaText: 'Курс', ctaLink: '#', likes: 874, shares: 32, liked: false },
+        ];
+        let userVideos = []; 
+        let likedVideos = [];
+
+        const icons = {
+            home: { active: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><path d="M12 2.09954L2.64999 9.14424V21.8557C2.64999 22.3861 3.08581 22.8219 3.61623 22.8219H20.3837C20.9142 22.8219 21.35 22.3861 21.35 21.8557V9.14424L12 2.09954Z"/></svg>`, inactive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>` },
+            profile: { active: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z M12 14C8.68629 14 6 16.6863 6 20H18C18 16.6863 15.3137 14 12 14Z"/></svg>`, inactive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>` }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const feedContainer = document.getElementById('feed-screen-content');
+            const videoUploadInput = document.getElementById('video-upload-input');
+            const videoPreview = document.getElementById('video-preview');
+            const headerPublishBtn = document.getElementById('header-publish-btn');
+            const editProfileBtn = document.getElementById('edit-profile-btn');
+            const postFirstVideoBtn = document.querySelector('.post-first-btn');
+            const bottomNav = document.querySelector('.bottom-nav');
+            const profileTabs = document.querySelector('.profile-tabs');
+            const shareProfileBtn = document.getElementById('share-profile-btn');
+            let selectedFile = null;
+
+            function showScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(screenId).classList.add('active');
+            }
+            
+            const iconElements = { home: document.getElementById('icon-home'), profile: document.getElementById('icon-profile') };
+            
+            function setActiveNav(activeScreenId) {
+                 document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                 Object.keys(iconElements).forEach(key => iconElements[key].innerHTML = icons[key].inactive);
+                 const activeItem = document.querySelector(`.nav-item[data-screen="${activeScreenId}"]`);
+                 if (activeItem) {
+                    activeItem.classList.add('active');
+                    const iconName = Object.keys(icons).find(key => activeScreenId.includes(key));
+                    if (iconName) iconElements[iconName].innerHTML = icons[iconName].active;
+                 }
+            }
+
+            bottomNav.addEventListener('click', (event) => {
+                const targetItem = event.target.closest('.nav-item');
+                if (!targetItem) return;
+                const screenId = targetItem.getAttribute('data-screen');
+                const action = targetItem.getAttribute('data-action');
+                if (screenId) {
+                    showScreen(screenId);
+                    setActiveNav(screenId);
+                    if (screenId === 'profile-screen') {
+                        renderMyVideos();
+                        renderLikedVideos();
+                    }
+                } else if (action === 'add-video') {
+                    videoUploadInput.click();
+                }
+            });
+
+            document.querySelectorAll('.back-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const parentScreen = btn.closest('.screen');
+                    const targetScreen = parentScreen.id === 'edit-profile-screen' ? 'profile-screen' : 'feed-screen';
+                    showScreen(targetScreen);
+                    setActiveNav(targetScreen);
+                });
+            });
+
+            if (editProfileBtn) editProfileBtn.addEventListener('click', () => showScreen('edit-profile-screen'));
+            if (postFirstVideoBtn) postFirstVideoBtn.addEventListener('click', () => videoUploadInput.click());
+            if (shareProfileBtn) shareProfileBtn.addEventListener('click', () => {
+                 navigator.share({ title: 'Мой профиль', url: window.location.href }).catch(e => console.log('Share failed', e));
+            });
+            
+            videoUploadInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (file.size > 100 * 1024 * 1024) {
+                    alert('Файл слишком большой! Максимум - 100 МБ.'); return;
+                }
+                selectedFile = file;
+                videoPreview.src = URL.createObjectURL(file);
+                showScreen('publish-screen');
+            });
+
+            const publishAction = () => {
+                if (!selectedFile) return;
+                const newVideo = {
+                    id: Date.now(), author: '@me', liked: false,
+                    description: document.getElementById('description-input').value || 'Без описания', poster: 'https://i.imgur.com/g8u2m6B.png',
+                    videoUrl: URL.createObjectURL(selectedFile),
+                    ctaText: document.getElementById('btn-text-input').value, ctaLink: document.getElementById('btn-link-input').value,
+                    likes: 0, shares: 0,
+                };
+                mockVideos.unshift(newVideo);
+                userVideos.unshift(newVideo);
+                renderFeed();
+                document.getElementById('description-input').value = '';
+                document.getElementById('btn-text-input').value = '';
+                document.getElementById('btn-link-input').value = '';
+                selectedFile = null;
+                showScreen('feed-screen');
+                setActiveNav('feed-screen');
+            };
+
+            headerPublishBtn.addEventListener('click', publishAction);
+
+            function renderFeed() {
+                feedContainer.innerHTML = mockVideos.map(video => `
+                    <div class="video-card" data-video-id="${video.id}">
+                        <div class="play-pause-icon"><i class="fa-solid fa-play"></i></div>
+                        <video class="video-player" loop muted playsinline poster="${video.poster}" src="${video.videoUrl}"></video>
+                        <div class="video-overlay"><div class="video-details">
+                            <div class="video-info-left">
+                                <div class="author-line"><div class="author-icon">${video.author.charAt(1).toUpperCase()}</div><h3>${video.author}</h3></div>
+                                <p>${video.description}</p>
+                                ${video.ctaText ? `<button class="cta-button" data-link="${video.ctaLink}">${video.ctaText}</button>` : ''}
+                            </div>
+                            <div class="video-actions">
+                                <div class="action-btn like-btn ${video.liked ? 'liked' : ''}"><i class="fa-solid fa-heart"></i><span class="likes-count">${video.likes}</span></div>
+                                <div class="action-btn share-btn"><i class="fa-solid fa-share"></i></div>
+                            </div>
+                        </div></div></div>`).join('');
+                initVideoCardListeners();
+            }
+            
+            function initVideoCardListeners() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        const video = entry.target.querySelector('.video-player');
+                        if (entry.isIntersecting) {
+                            document.querySelectorAll('.video-player').forEach(v => v.pause());
+                            video.play().catch(e => {});
+                        } else {
+                            video.pause();
+                        }
+                    });
+                }, { threshold: 0.65 });
+
+                document.querySelectorAll('.video-card').forEach(card => {
+                    observer.observe(card);
+                    const video = card.querySelector('.video-player');
+                    card.addEventListener('click', (event) => {
+                        if (event.target.closest('button, .action-btn')) return;
+                        if (video.paused) {
+                            video.play();
+                        } else {
+                            video.muted = !video.muted;
+                        }
+                    });
+                });
+            }
+
+            feedContainer.addEventListener('click', async (event) => {
+                const likeBtn = event.target.closest('.like-btn');
+                const shareBtn = event.target.closest('.share-btn');
+
+                if (likeBtn) {
+                    const videoCard = likeBtn.closest('.video-card');
+                    const videoId = parseInt(videoCard.dataset.videoId);
+                    const video = mockVideos.find(v => v.id === videoId);
+                    
+                    video.liked = !video.liked;
+                    likeBtn.classList.toggle('liked', video.liked);
+                    
+                    const countSpan = likeBtn.querySelector('.likes-count');
+                    if (video.liked) {
+                        video.likes++;
+                        likedVideos.unshift(video);
+                    } else {
+                        video.likes--;
+                        likedVideos = likedVideos.filter(v => v.id !== videoId);
+                    }
+                    countSpan.textContent = video.likes;
+                }
+
+                if (shareBtn) {
+                    if (navigator.share) {
+                        await navigator.share({ title: 'Смотри какое видео!', url: window.location.href }).catch(e => console.log('Share error', e));
+                    } else {
+                        alert('Функция "Поделиться" не поддерживается.');
+                    }
+                }
+            });
+
+            function renderMyVideos() {
+                const container = document.getElementById('my-videos-grid');
+                const placeholder = document.getElementById('no-my-videos');
+                if (userVideos.length === 0) {
+                    placeholder.style.display = 'flex';
+                    container.style.display = 'none';
+                } else {
+                    placeholder.style.display = 'none';
+                    container.style.display = 'grid';
+                    container.innerHTML = userVideos.map(video => `<div class="poster"><img src="${video.poster}"/></div>`).join('');
+                }
+            }
+            
+            function renderLikedVideos() {
+                const container = document.getElementById('liked-videos-grid');
+                const placeholder = document.getElementById('no-liked-videos');
+                if (likedVideos.length === 0) {
+                    placeholder.style.display = 'flex';
+                    container.style.display = 'none';
+                } else {
+                    placeholder.style.display = 'none';
+                    container.style.display = 'grid';
+                    container.innerHTML = likedVideos.map(video => `<div class="poster"><img src="${video.poster}"/></div>`).join('');
+                }
+            }
+
+            profileTabs.addEventListener('click', (event) => {
+                const targetTab = event.target.closest('.profile-tab-item');
+                if (!targetTab) return;
+
+                document.querySelectorAll('.profile-tab-item').forEach(t => t.classList.remove('active'));
+                targetTab.classList.add('active');
+
+                const tabContentId = targetTab.dataset.tab + '-content';
+                document.querySelectorAll('.profile-tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(tabContentId).classList.add('active');
+            });
+            
+            setActiveNav('feed-screen');
+            renderFeed();
+        });
+    </script>
+</body>
+</html>
